@@ -1,0 +1,6 @@
+﻿PROFILE_URL = "https://www.naukri.com/mnjuser/profile"
+NAME_DISPLAY = "span.fullname"
+NAME_EDIT_BUTTON = "em.icon.edit[aria-label='Edit basic details']"
+NAME_INPUT = "input#name"
+SAVE_BUTTON = ".profileEditDrawer.model_open button:has-text('Save')"
+LOGIN_MARKER = "input[placeholder*='Email'], a[title='Jobseeker Login']"

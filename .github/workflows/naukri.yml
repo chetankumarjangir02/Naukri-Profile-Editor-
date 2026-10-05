@@ -1,0 +1,32 @@
+name: naukri-name-toggle
+
+on:
+  schedule:
+    - cron: "30 3 * * *"   # 09:00 IST daily (+ random delay from MAX_RANDOM_DELAY_MIN)
+  workflow_dispatch: {}
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r requirements.txt
+      - run: playwright install --with-deps chromium
+      - name: Restore Naukri session
+        run: echo "${{ secrets.NAUKRI_STATE_B64 }}" | base64 -d > state.json
+      - name: Run agent
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          MAX_RANDOM_DELAY_MIN: "30"
+        run: python main.py
+      - name: Upload failure screenshots
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots
+          path: screenshots/
