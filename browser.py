@@ -16,18 +16,39 @@ class SessionExpired(Exception):
     pass
 
 
+class BlockedBySite(Exception):
+    pass
+
+
 @contextmanager
 def naukri_page():
     """Open a browser with the saved session. Saves the refreshed session on exit."""
     if not Path(STATE_FILE).exists():
         raise SessionExpired(f"{STATE_FILE} not found. Run `python login_once.py` first.")
     headless = os.getenv("HEADLESS", "1") != "0"
+    channel = os.getenv("BROWSER_CHANNEL", "chrome").strip().lower() or "chrome"
+    if channel in ("bundled", "chromium", "playwright", "none", "0"):
+        channel = None
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=headless)
-        context = browser.new_context(
-            storage_state=STATE_FILE,
-            viewport={"width": 1366, "height": 850},
+        browser = p.chromium.launch(
+            headless=headless,
+            channel=channel,
+            args=["--disable-blink-features=AutomationControlled"],
         )
+        ctx_kwargs = {
+            "storage_state": STATE_FILE,
+            "viewport": {"width": 1366, "height": 850},
+            "locale": "en-IN",
+        }
+        if headless:
+            # Naukri's CDN (Akamai) 403s any UA containing "HeadlessChrome".
+            # Mask it with a normal UA matching the real browser version.
+            ver = browser.version or "0.0.0.0"
+            ctx_kwargs["user_agent"] = (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                f"(KHTML, like Gecko) Chrome/{ver} Safari/537.36"
+            )
+        context = browser.new_context(**ctx_kwargs)
         page = context.new_page()
         page.set_default_timeout(20_000)
         try:
@@ -55,12 +76,27 @@ def open_profile(page):
     page.wait_for_load_state("networkidle")
     if "login" in page.url.lower() or page.locator(S.LOGIN_MARKER).count() > 0:
         raise SessionExpired("Naukri session expired. Re-run `python login_once.py`.")
+    try:
+        body = page.locator("body").first.inner_text(timeout=5_000)
+    except Exception:
+        body = ""
+    if "errors_edgesuite.net" in body or "Access Denied" in body:
+        screenshot(page, "blocked")
+        raise BlockedBySite(
+            "Naukri's CDN (Akamai) returned an Access Denied page. "
+            "This browser/IP is blocked - retrying now makes it worse. "
+            "Wait a while, switch network, or run `python login_once.py` from a normal browser session."
+        )
 
 
 def read_name(page) -> str:
     open_profile(page)
     loc = page.locator(S.NAME_DISPLAY).first
-    loc.wait_for(state="visible")
+    try:
+        loc.wait_for(state="visible")
+    except Exception:
+        screenshot(page, "read-fail")
+        raise
     return loc.inner_text().strip()
 
 

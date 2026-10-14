@@ -186,3 +186,7 @@ base64 state.json
 ## License
 
 This project does not currently declare a license. Use it responsibly and confirm compliance with your local laws and the Naukri platform terms before deploying it in production or shared environments.
+
+$env:HEADLESS="0"; $env:MAX_RANDOM_DELAY_MIN="0"; python main.py
+
+$env:HEADLESS="1"; $env:INTERVAL_MINUTES="5"; $env:MAX_RANDOM_DELAY_MIN="0"; python loop.py

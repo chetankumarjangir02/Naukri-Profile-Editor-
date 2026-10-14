@@ -48,7 +48,7 @@ def update_name(state: State) -> State:
                 browser.screenshot(page, f"update-fail-{attempts}")
                 raise
         return {"attempts": attempts, "error": None}
-    except browser.SessionExpired as e:
+    except (browser.SessionExpired, browser.BlockedBySite) as e:
         return {"attempts": MAX_ATTEMPTS, "error": str(e)}  # retrying won't help
     except Exception as e:
         return {"attempts": attempts, "error": f"update failed: {e}"}
